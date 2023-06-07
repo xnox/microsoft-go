@@ -13,9 +13,9 @@ Subject: [PATCH] Add OpenSSL crypto backend
  src/crypto/ecdsa/boring.go                    |   2 +-
  src/crypto/ecdsa/notboring.go                 |   2 +-
  src/crypto/internal/backend/bbig/big.go       |   2 +-
- .../internal/backend/bbig/big_openssl.go      |  12 ++
+ .../internal/backend/bbig/big_openssl.go      |  12 +
  src/crypto/internal/backend/nobackend.go      |   2 +-
- src/crypto/internal/backend/openssl_linux.go  | 203 ++++++++++++++++++
+ src/crypto/internal/backend/openssl_linux.go  | 232 ++++++++++++++++++
  src/crypto/internal/boring/fipstls/stub.s     |   2 +-
  src/crypto/internal/boring/fipstls/tls.go     |   2 +-
  src/crypto/rsa/boring.go                      |   2 +-
@@ -37,7 +37,7 @@ Subject: [PATCH] Add OpenSSL crypto backend
  .../goexperiment/exp_opensslcrypto_on.go      |   9 +
  src/internal/goexperiment/flags.go            |   1 +
  src/os/exec/exec_test.go                      |   9 +
- 33 files changed, 285 insertions(+), 24 deletions(-)
+ 34 files changed, 320 insertions(+), 24 deletions(-)
  create mode 100644 src/crypto/internal/backend/bbig/big_openssl.go
  create mode 100644 src/crypto/internal/backend/openssl_linux.go
  create mode 100644 src/internal/goexperiment/exp_opensslcrypto_off.go
@@ -107,14 +107,14 @@ index 4aaf46b5d0f0dc..e2ac54f96db1e8 100644
  
  go list -f '{{.Dir}}' vendor/golang.org/x/net/http2/hpack
 diff --git a/src/cmd/link/internal/ld/lib.go b/src/cmd/link/internal/ld/lib.go
-index 54021b69f4e534..f5d6941beff4b2 100644
+index 54021b69f4e534..07a9aa12534942 100644
 --- a/src/cmd/link/internal/ld/lib.go
 +++ b/src/cmd/link/internal/ld/lib.go
 @@ -1134,6 +1134,7 @@ var hostobj []Hostobj
  // These packages can use internal linking mode.
  // Others trigger external mode.
  var internalpkg = []string{
-+	"vendor/github.com/microsoft/go-crypto-openssl/openssl",
++	"vendor/github.com/golang-fips/openssl",
  	"crypto/internal/boring",
  	"crypto/internal/boring/syso",
  	"crypto/x509",
@@ -172,7 +172,7 @@ index 85bd3ed083f5b2..51bc3c68048d51 100644
  
 diff --git a/src/crypto/internal/backend/bbig/big_openssl.go b/src/crypto/internal/backend/bbig/big_openssl.go
 new file mode 100644
-index 00000000000000..61ef3fdd90b607
+index 00000000000000..e6672d6cfa596a
 --- /dev/null
 +++ b/src/crypto/internal/backend/bbig/big_openssl.go
 @@ -0,0 +1,12 @@
@@ -184,7 +184,7 @@ index 00000000000000..61ef3fdd90b607
 +
 +package bbig
 +
-+import "github.com/microsoft/go-crypto-openssl/openssl/bbig"
++import "github.com/golang-fips/openssl/bbig"
 +
 +var Enc = bbig.Enc
 +var Dec = bbig.Dec
@@ -203,10 +203,10 @@ index 5cbd86907a135b..fcdea7f8ab5a9d 100644
  
 diff --git a/src/crypto/internal/backend/openssl_linux.go b/src/crypto/internal/backend/openssl_linux.go
 new file mode 100644
-index 00000000000000..68ea43ea892e1d
+index 00000000000000..faed458f4f784b
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl_linux.go
-@@ -0,0 +1,203 @@
+@@ -0,0 +1,232 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -225,16 +225,43 @@ index 00000000000000..68ea43ea892e1d
 +	"hash"
 +	"syscall"
 +
-+	"github.com/microsoft/go-crypto-openssl/openssl"
++	"github.com/golang-fips/openssl"
 +)
 +
 +// Enabled controls whether FIPS crypto is enabled.
 +const Enabled = true
 +
++// knownVersions is a list of supported and well-known libcrypto.so suffixes in decreasing version order.
++//
++// FreeBSD library version numbering does not directly align to the version of OpenSSL.
++// Its preferred search order is 11 -> 111.
++//
++// Some distributions use 1.0.0 and others (such as Debian) 1.0.2 to refer to the same OpenSSL 1.0.2 version.
++//
++// Fedora derived distros use different naming for the version 1.0.x.
++var knownVersions = [...]string{"3", "1.1", "11", "111", "1.0.2", "1.0.0", "10"}
++
 +func init() {
-+	err := openssl.Init()
++	version, _ := syscall.Getenv("GO_OPENSSL_VERSION_OVERRIDE")
++	if version == "" {
++		var fallbackVersion string
++		for _, v := range knownVersions {
++			exists, fips := openssl.CheckVersion(v)
++			if exists && fips {
++				version = v
++				break
++			}
++			if exists && fallbackVersion == "" {
++				fallbackVersion = v
++			}
++		}
++		if version == "" && fallbackVersion != "" {
++			version = fallbackVersion
++		}
++	}
++	err := openssl.Init(version)
 +	if err != nil {
-+		panic("opensslcrypto: can't initialize OpenSSL: " + err.Error())
++		panic("opensslcrypto: can't initialize OpenSSL " + version + ": " + err.Error())
 +	}
 +	// 0: FIPS opt-out: abort the process if it is enabled and can't be disabled.
 +	// 1: FIPS required: abort the process if it is not enabled and can't be enabled.
@@ -250,12 +277,14 @@ index 00000000000000..68ea43ea892e1d
 +	case "0":
 +		if openssl.FIPS() {
 +			if err = openssl.SetFIPS(false); err != nil {
++				println(openssl.VersionText())
 +				panic("opensslcrypto: can't disable FIPS mode: " + err.Error())
 +			}
 +		}
 +	case "1":
 +		if !openssl.FIPS() {
 +			if err = openssl.SetFIPS(true); err != nil {
++				println(openssl.VersionText())
 +				panic("opensslcrypto: can't enable FIPS mode: " + err.Error())
 +			}
 +		}
@@ -341,7 +370,7 @@ index 00000000000000..68ea43ea892e1d
 +type PrivateKeyRSA = openssl.PrivateKeyRSA
 +
 +func DecryptRSAOAEP(h, mgfHash hash.Hash, priv *openssl.PrivateKeyRSA, ciphertext, label []byte) ([]byte, error) {
-+	return openssl.DecryptRSAOAEPWithMGF1Hash(h, mgfHash, priv, ciphertext, label)
++	return openssl.DecryptRSAOAEP(h, mgfHash, priv, ciphertext, label)
 +}
 +
 +func DecryptRSAPKCS1(priv *openssl.PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
@@ -353,7 +382,7 @@ index 00000000000000..68ea43ea892e1d
 +}
 +
 +func EncryptRSAOAEP(h, mgfHash hash.Hash, pub *openssl.PublicKeyRSA, msg, label []byte) ([]byte, error) {
-+	return openssl.EncryptRSAOAEPWithMGF1Hash(h, mgfHash, pub, msg, label)
++	return openssl.EncryptRSAOAEP(h, mgfHash, pub, msg, label)
 +}
 +
 +func EncryptRSAPKCS1(pub *openssl.PublicKeyRSA, msg []byte) ([]byte, error) {
@@ -594,37 +623,37 @@ index c83a7272c9f01f..a0548a7f9179c5 100644
  package x509
  
 diff --git a/src/go.mod b/src/go.mod
-index c44f93757923a9..dc7afdb026e6f2 100644
+index c44f93757923a9..b73f25f582d963 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
  go 1.21
  
  require (
-+	github.com/microsoft/go-crypto-openssl v0.2.7
++	github.com/golang-fips/openssl v0.0.0-20230603145912-70dc5503554b
  	golang.org/x/crypto v0.9.0
  	golang.org/x/net v0.10.1-0.20230525180353-f7250ea19d21
  )
 diff --git a/src/go.sum b/src/go.sum
-index 3321fcff1b5dc0..1f8230fe451ccc 100644
+index 3321fcff1b5dc0..5de425188d93c2 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
-+github.com/microsoft/go-crypto-openssl v0.2.7 h1:NKugDhOzj/ck0xRcATCL2L16B6IqZ/2AaG7b+KFa5aE=
-+github.com/microsoft/go-crypto-openssl v0.2.7/go.mod h1:xOSmQnWz4xvNB2+KQN2g2UUwMG9vqDHBk9nk/NdmyRw=
++github.com/golang-fips/openssl v0.0.0-20230603145912-70dc5503554b h1:Ih7ypZiBez+G9j5zrAI6WWnfxMdx4Yk6RcaSvMAdu8A=
++github.com/golang-fips/openssl v0.0.0-20230603145912-70dc5503554b/go.mod h1:LBziBt5PA8FeliZ0KnhnWMrrHzvAsMWZUlYWOYKkpBI=
  golang.org/x/crypto v0.9.0 h1:LF6fAI+IutBocDJ2OT0Q1g8plpYljMZ4+lty+dsqw3g=
  golang.org/x/crypto v0.9.0/go.mod h1:yrmDGqONDYtNj3tH8X9dzUun2m2lzPa9ngI6/RUPGR0=
  golang.org/x/net v0.10.1-0.20230525180353-f7250ea19d21 h1:jUMNhNY++lQOGP3xpA6+oKyHzRWdM7e6XBFppuDXEUw=
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 3356154c7d1082..ef79bb8b7b24ca 100644
+index 3356154c7d1082..e6127a33d00ccc 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
 @@ -425,6 +425,8 @@ var depsRules = `
  
  	crypto/cipher,
  	crypto/internal/boring/bcache
-+	< github.com/microsoft/go-crypto-openssl/openssl/internal/subtle
-+	< github.com/microsoft/go-crypto-openssl/openssl
++	< github.com/golang-fips/openssl/internal/subtle
++	< github.com/golang-fips/openssl
  	< crypto/internal/boring
  	< crypto/internal/backend
  	< crypto/boring;
@@ -632,7 +661,7 @@ index 3356154c7d1082..ef79bb8b7b24ca 100644
  
  	# CRYPTO-MATH is core bignum-based crypto - no cgo, net; fmt now ok.
  	CRYPTO, FMT, math/big
-+	< github.com/microsoft/go-crypto-openssl/openssl/bbig
++	< github.com/golang-fips/openssl/bbig
  	< crypto/internal/boring/bbig
  	< crypto/internal/backend/bbig
  	< crypto/rand
@@ -650,7 +679,7 @@ index 3356154c7d1082..ef79bb8b7b24ca 100644
  	var imports []string
  	var haveImport = map[string]bool{}
 -	if pkg == "crypto/internal/boring" {
-+	if pkg == "crypto/internal/boring" || pkg == "github.com/microsoft/go-crypto-openssl/openssl" {
++	if pkg == "crypto/internal/boring" || pkg == "github.com/golang-fips/openssl" {
  		haveImport["C"] = true // kludge: prevent C from appearing in crypto/internal/boring imports
  	}
  	fset := token.NewFileSet()
