@@ -15,7 +15,7 @@ Subject: [PATCH] Add OpenSSL crypto backend
  src/crypto/internal/backend/bbig/big.go       |   2 +-
  .../internal/backend/bbig/big_openssl.go      |  12 +
  src/crypto/internal/backend/nobackend.go      |   2 +-
- src/crypto/internal/backend/openssl_linux.go  | 232 ++++++++++++++++++
+ src/crypto/internal/backend/openssl_linux.go  | 229 ++++++++++++++++++
  src/crypto/internal/boring/fipstls/stub.s     |   2 +-
  src/crypto/internal/boring/fipstls/tls.go     |   2 +-
  src/crypto/rsa/boring.go                      |   2 +-
@@ -37,7 +37,7 @@ Subject: [PATCH] Add OpenSSL crypto backend
  .../goexperiment/exp_opensslcrypto_on.go      |   9 +
  src/internal/goexperiment/flags.go            |   1 +
  src/os/exec/exec_test.go                      |   9 +
- 34 files changed, 320 insertions(+), 24 deletions(-)
+ 33 files changed, 311 insertions(+), 24 deletions(-)
  create mode 100644 src/crypto/internal/backend/bbig/big_openssl.go
  create mode 100644 src/crypto/internal/backend/openssl_linux.go
  create mode 100644 src/internal/goexperiment/exp_opensslcrypto_off.go
@@ -203,10 +203,10 @@ index 5cbd86907a135b..fcdea7f8ab5a9d 100644
  
 diff --git a/src/crypto/internal/backend/openssl_linux.go b/src/crypto/internal/backend/openssl_linux.go
 new file mode 100644
-index 00000000000000..faed458f4f784b
+index 00000000000000..587a47486ba96e
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl_linux.go
-@@ -0,0 +1,232 @@
+@@ -0,0 +1,229 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -232,12 +232,9 @@ index 00000000000000..faed458f4f784b
 +const Enabled = true
 +
 +// knownVersions is a list of supported and well-known libcrypto.so suffixes in decreasing version order.
-+//
 +// FreeBSD library version numbering does not directly align to the version of OpenSSL.
 +// Its preferred search order is 11 -> 111.
-+//
 +// Some distributions use 1.0.0 and others (such as Debian) 1.0.2 to refer to the same OpenSSL 1.0.2 version.
-+//
 +// Fedora derived distros use different naming for the version 1.0.x.
 +var knownVersions = [...]string{"3", "1.1", "11", "111", "1.0.2", "1.0.0", "10"}
 +
