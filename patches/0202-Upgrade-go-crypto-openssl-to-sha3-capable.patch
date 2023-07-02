@@ -1,4 +1,4 @@
-From 9b159339e429aee2ec4d4973730d375287c6c797 Mon Sep 17 00:00:00 2001
+From 4c50bd765f76109882d8cc42dc2540da1f9e61d9 Mon Sep 17 00:00:00 2001
 From: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 Date: Sun, 2 Jul 2023 00:44:15 +0100
 Subject: [PATCH 202/203] Upgrade go-crypto-openssl to sha3 capable
@@ -22,8 +22,8 @@ Signed-off-by: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
  .../go-crypto-openssl/openssl/openssl_funcs.h |  70 +++++-
  .../go-crypto-openssl/openssl/rsa.go          |  82 +++++--
  .../go-crypto-openssl/openssl/sha.go          | 191 ++++++++++++++-
- src/vendor/modules.txt                        |   7 +-
- 18 files changed, 1126 insertions(+), 242 deletions(-)
+ src/vendor/modules.txt                        |   6 +-
+ 18 files changed, 1125 insertions(+), 242 deletions(-)
  create mode 100644 src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/big.go
  create mode 100644 src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/bridge/bridge.go
  create mode 100644 src/vendor/github.com/microsoft/go-crypto-openssl/openssl/big.go
@@ -73,7 +73,7 @@ index 659104006e..6678020bf1 100644
  var SignRSAPSS = openssl.SignRSAPSS
  var VerifyRSAPKCS1v15 = openssl.VerifyRSAPKCS1v15
 diff --git a/src/go.mod b/src/go.mod
-index 5a46c4c944..89ae0e7d8b 100644
+index 5a46c4c944..1d46c8fa5d 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,7 +3,7 @@ module std
@@ -90,7 +90,7 @@ index 5a46c4c944..89ae0e7d8b 100644
  	golang.org/x/text v0.3.8-0.20211105212822-18b340fc7af2 // indirect
  )
 +
-+replace github.com/microsoft/go-crypto-openssl => github.com/xnox/go-crypto-openssl v0.2.9-0.20230701230530-84b71a4b45db
++replace github.com/microsoft/go-crypto-openssl v0.2.8 => github.com/xnox/go-crypto-openssl v0.2.9-0.20230701230530-84b71a4b45db
 diff --git a/src/go.sum b/src/go.sum
 index 46ee4c4442..1ebb25d4ef 100644
 --- a/src/go.sum
@@ -2192,7 +2192,7 @@ index c5b0189efc..cdd216423b 100644
  func appendUint64(b []byte, x uint64) []byte {
  	return append(b,
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index c31f65cd61..0f4e03b5d7 100644
+index c31f65cd61..75b78bfb94 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,6 +1,8 @@
@@ -2206,11 +2206,6 @@ index c31f65cd61..0f4e03b5d7 100644
  github.com/microsoft/go-crypto-openssl/openssl/internal/subtle
  # golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
  ## explicit; go 1.17
-@@ -32,3 +34,4 @@ golang.org/x/text/secure/bidirule
- golang.org/x/text/transform
- golang.org/x/text/unicode/bidi
- golang.org/x/text/unicode/norm
-+# github.com/microsoft/go-crypto-openssl => github.com/xnox/go-crypto-openssl v0.2.9-0.20230701230530-84b71a4b45db
 -- 
 2.34.1
 
