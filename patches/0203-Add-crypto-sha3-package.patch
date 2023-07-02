@@ -1,0 +1,74 @@
+From f5c49fc76d8e85c1ccbc802424dee1d47e249450 Mon Sep 17 00:00:00 2001
+From: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
+Date: Sun, 2 Jul 2023 00:59:30 +0100
+Subject: [PATCH 203/203] Add crypto/sha3 package
+
+Signed-off-by: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
+---
+ src/crypto/internal/backend/openssl_linux.go | 10 ++++++
+ src/crypto/sha3/sha3.go                      | 32 ++++++++++++++++++++
+ 2 files changed, 42 insertions(+)
+ create mode 100644 src/crypto/sha3/sha3.go
+
+diff --git a/src/crypto/internal/backend/openssl_linux.go b/src/crypto/internal/backend/openssl_linux.go
+index 659104006e..96e3c1fed0 100644
+--- a/src/crypto/internal/backend/openssl_linux.go
++++ b/src/crypto/internal/backend/openssl_linux.go
+@@ -109,6 +109,16 @@ var NewSHA256 = openssl.NewSHA256
+ var NewSHA384 = openssl.NewSHA384
+ var NewSHA512 = openssl.NewSHA512
+ 
++var SupportsSHA3 = openssl.SupportsSHA3
++var NewSHA3_224 = openssl.NewSHA3_224
++var NewSHA3_256 = openssl.NewSHA3_256
++var NewSHA3_384 = openssl.NewSHA3_384
++var NewSHA3_512 = openssl.NewSHA3_512
++var SHA3_224 = openssl.SHA3_224
++var SHA3_256 = openssl.SHA3_256
++var SHA3_384 = openssl.SHA3_384
++var SHA3_512 = openssl.SHA3_512
++
+ var NewHMAC = openssl.NewHMAC
+ 
+ var NewAESCipher = openssl.NewAESCipher
+diff --git a/src/crypto/sha3/sha3.go b/src/crypto/sha3/sha3.go
+new file mode 100644
+index 0000000000..ac44533005
+--- /dev/null
++++ b/src/crypto/sha3/sha3.go
+@@ -0,0 +1,32 @@
++// Copyright 2023 Canonical Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan
++// +build linux,cgo,!android,!gocrypt,!cmd_go_bootstrap,!msan
++
++package sha3
++
++import (
++	"crypto"
++	boring "crypto/internal/backend"
++)
++
++var SupportsSHA3 = boring.SupportsSHA3
++var New224 = boring.NewSHA3_224
++var New256 = boring.NewSHA3_256
++var New384 = boring.NewSHA3_384
++var New512 = boring.NewSHA3_512
++var Sum224 = boring.SHA3_224
++var Sum256 = boring.SHA3_256
++var Sum384 = boring.SHA3_384
++var Sum512 = boring.SHA3_512
++
++func init() {
++       if boring.SupportsSHA3() {
++              crypto.RegisterHash(crypto.SHA3_224, New224)
++              crypto.RegisterHash(crypto.SHA3_256, New256)
++              crypto.RegisterHash(crypto.SHA3_384, New384)
++              crypto.RegisterHash(crypto.SHA3_512, New512)
++       }
++}
+-- 
+2.34.1
+
