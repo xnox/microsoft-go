@@ -1,4 +1,4 @@
-From f5c49fc76d8e85c1ccbc802424dee1d47e249450 Mon Sep 17 00:00:00 2001
+From 7294d070f1fd20f6b48bd11531dcc7769b30a154 Mon Sep 17 00:00:00 2001
 From: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 Date: Sun, 2 Jul 2023 00:59:30 +0100
 Subject: [PATCH 203/203] Add crypto/sha3 package
@@ -11,10 +11,10 @@ Signed-off-by: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
  create mode 100644 src/crypto/sha3/sha3.go
 
 diff --git a/src/crypto/internal/backend/openssl_linux.go b/src/crypto/internal/backend/openssl_linux.go
-index 659104006e..96e3c1fed0 100644
+index 6678020bf1..94a98e1d8c 100644
 --- a/src/crypto/internal/backend/openssl_linux.go
 +++ b/src/crypto/internal/backend/openssl_linux.go
-@@ -109,6 +109,16 @@ var NewSHA256 = openssl.NewSHA256
+@@ -110,6 +110,16 @@ var NewSHA256 = openssl.NewSHA256
  var NewSHA384 = openssl.NewSHA384
  var NewSHA512 = openssl.NewSHA512
  

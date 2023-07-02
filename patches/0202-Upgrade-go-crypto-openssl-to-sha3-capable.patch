@@ -1,13 +1,16 @@
-From 9900f499b19ec984e9c759215e36607f83ea3c98 Mon Sep 17 00:00:00 2001
+From 9b159339e429aee2ec4d4973730d375287c6c797 Mon Sep 17 00:00:00 2001
 From: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 Date: Sun, 2 Jul 2023 00:44:15 +0100
 Subject: [PATCH 202/203] Upgrade go-crypto-openssl to sha3 capable
 
 Signed-off-by: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 ---
- src/go.mod                                    |   2 +
- src/go.sum                                    |   2 +
+ src/crypto/internal/backend/openssl_linux.go  |  17 +-
+ src/go.mod                                    |   4 +-
+ src/go.sum                                    |   4 +-
  .../go-crypto-openssl/openssl/aes.go          |  12 +-
+ .../go-crypto-openssl/openssl/bbig/big.go     |  38 +++
+ .../openssl/bbig/bridge/bridge.go             |  83 +++++++
  .../go-crypto-openssl/openssl/big.go          |  13 +
  .../go-crypto-openssl/openssl/ecdh.go         | 223 ++++++++++++++++++
  .../go-crypto-openssl/openssl/ecdsa.go        |  92 ++------
@@ -19,15 +22,69 @@ Signed-off-by: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
  .../go-crypto-openssl/openssl/openssl_funcs.h |  70 +++++-
  .../go-crypto-openssl/openssl/rsa.go          |  82 +++++--
  .../go-crypto-openssl/openssl/sha.go          | 191 ++++++++++++++-
- src/vendor/modules.txt                        |   5 +-
- 15 files changed, 993 insertions(+), 231 deletions(-)
+ src/vendor/modules.txt                        |   7 +-
+ 18 files changed, 1126 insertions(+), 242 deletions(-)
+ create mode 100644 src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/big.go
+ create mode 100644 src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/bridge/bridge.go
  create mode 100644 src/vendor/github.com/microsoft/go-crypto-openssl/openssl/big.go
  create mode 100644 src/vendor/github.com/microsoft/go-crypto-openssl/openssl/ecdh.go
 
+diff --git a/src/crypto/internal/backend/openssl_linux.go b/src/crypto/internal/backend/openssl_linux.go
+index 659104006e..6678020bf1 100644
+--- a/src/crypto/internal/backend/openssl_linux.go
++++ b/src/crypto/internal/backend/openssl_linux.go
+@@ -15,6 +15,7 @@ import (
+ 	"syscall"
+ 
+ 	"github.com/microsoft/go-crypto-openssl/openssl"
++	"github.com/microsoft/go-crypto-openssl/openssl/bbig/bridge"
+ )
+ 
+ // Enabled controls whether FIPS crypto is enabled.
+@@ -116,12 +117,12 @@ var NewAESCipher = openssl.NewAESCipher
+ type PublicKeyECDSA = openssl.PublicKeyECDSA
+ type PrivateKeyECDSA = openssl.PrivateKeyECDSA
+ 
+-var GenerateKeyECDSA = openssl.GenerateKeyECDSA
+-var NewPrivateKeyECDSA = openssl.NewPrivateKeyECDSA
+-var NewPublicKeyECDSA = openssl.NewPublicKeyECDSA
+-var SignECDSA = openssl.SignECDSA
++var GenerateKeyECDSA = bridge.GenerateKeyECDSA
++var NewPrivateKeyECDSA = bridge.NewPrivateKeyECDSA
++var NewPublicKeyECDSA = bridge.NewPublicKeyECDSA
++var SignECDSA = bridge.SignECDSA
+ var SignMarshalECDSA = openssl.SignMarshalECDSA
+-var VerifyECDSA = openssl.VerifyECDSA
++var VerifyECDSA = bridge.VerifyECDSA
+ 
+ type PublicKeyRSA = openssl.PublicKeyRSA
+ type PrivateKeyRSA = openssl.PrivateKeyRSA
+@@ -132,9 +133,9 @@ var DecryptRSANoPadding = openssl.DecryptRSANoPadding
+ var EncryptRSAOAEP = openssl.EncryptRSAOAEP
+ var EncryptRSAPKCS1 = openssl.EncryptRSAPKCS1
+ var EncryptRSANoPadding = openssl.EncryptRSANoPadding
+-var GenerateKeyRSA = openssl.GenerateKeyRSA
+-var NewPrivateKeyRSA = openssl.NewPrivateKeyRSA
+-var NewPublicKeyRSA = openssl.NewPublicKeyRSA
++var GenerateKeyRSA = bridge.GenerateKeyRSA
++var NewPrivateKeyRSA = bridge.NewPrivateKeyRSA
++var NewPublicKeyRSA = bridge.NewPublicKeyRSA
+ var SignRSAPKCS1v15 = openssl.SignRSAPKCS1v15
+ var SignRSAPSS = openssl.SignRSAPSS
+ var VerifyRSAPKCS1v15 = openssl.VerifyRSAPKCS1v15
 diff --git a/src/go.mod b/src/go.mod
-index 5a46c4c944..bbe7ac2d3c 100644
+index 5a46c4c944..89ae0e7d8b 100644
 --- a/src/go.mod
 +++ b/src/go.mod
+@@ -3,7 +3,7 @@ module std
+ go 1.18
+ 
+ require (
+-	github.com/microsoft/go-crypto-openssl v0.1.2
++	github.com/microsoft/go-crypto-openssl v0.2.8
+ 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+ 	golang.org/x/net v0.0.0-20221214163811-6143a133e5c9
+ )
 @@ -12,3 +12,5 @@ require (
  	golang.org/x/sys v0.0.0-20220310020820-b874c991c1a5 // indirect
  	golang.org/x/text v0.3.8-0.20211105212822-18b340fc7af2 // indirect
@@ -35,12 +92,12 @@ index 5a46c4c944..bbe7ac2d3c 100644
 +
 +replace github.com/microsoft/go-crypto-openssl => github.com/xnox/go-crypto-openssl v0.2.9-0.20230701230530-84b71a4b45db
 diff --git a/src/go.sum b/src/go.sum
-index 46ee4c4442..124153f9e2 100644
+index 46ee4c4442..1ebb25d4ef 100644
 --- a/src/go.sum
 +++ b/src/go.sum
-@@ -1,5 +1,7 @@
- github.com/microsoft/go-crypto-openssl v0.1.2 h1:1JO/O62aLFCGpKWKrxdxzIITNJJ00hkBL0v/LLpEZUM=
- github.com/microsoft/go-crypto-openssl v0.1.2/go.mod h1:rC+rtBU3m60UCQifBmpWII0VETfu78w6YGZQvVc0rd4=
+@@ -1,5 +1,5 @@
+-github.com/microsoft/go-crypto-openssl v0.1.2 h1:1JO/O62aLFCGpKWKrxdxzIITNJJ00hkBL0v/LLpEZUM=
+-github.com/microsoft/go-crypto-openssl v0.1.2/go.mod h1:rC+rtBU3m60UCQifBmpWII0VETfu78w6YGZQvVc0rd4=
 +github.com/xnox/go-crypto-openssl v0.2.9-0.20230701230530-84b71a4b45db h1:wDf6GGeSKkHOjTTNV5jky1+zXm9U4qoDW7kGtKk726A=
 +github.com/xnox/go-crypto-openssl v0.2.9-0.20230701230530-84b71a4b45db/go.mod h1:xOSmQnWz4xvNB2+KQN2g2UUwMG9vqDHBk9nk/NdmyRw=
  golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 h1:0es+/5331RGQPcXlMfP+WrnIIS6dNnNRe0WB02W0F4M=
@@ -77,6 +134,139 @@ index 3177c0d37c..46d70bf264 100644
  func (c *aesCipher) NewGCMTLS() (cipher.AEAD, error) {
  	return c.newGCM(true)
  }
+diff --git a/src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/big.go b/src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/big.go
+new file mode 100644
+index 0000000000..1214e1097e
+--- /dev/null
++++ b/src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/big.go
+@@ -0,0 +1,38 @@
++// Copyright 2022 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++// This is a mirror of crypto/internal/boring/bbig/big.go.
++
++package bbig
++
++import (
++	"math/big"
++	"unsafe"
++
++	"github.com/microsoft/go-crypto-openssl/openssl"
++)
++
++func Enc(b *big.Int) openssl.BigInt {
++	if b == nil {
++		return nil
++	}
++	x := b.Bits()
++	if len(x) == 0 {
++		return openssl.BigInt{}
++	}
++	// TODO: Use unsafe.Slice((*uint)(&x[0]), len(x)) once go1.16 is no longer supported.
++	return (*(*[]uint)(unsafe.Pointer(&x)))[:len(x)]
++}
++
++func Dec(b openssl.BigInt) *big.Int {
++	if b == nil {
++		return nil
++	}
++	if len(b) == 0 {
++		return new(big.Int)
++	}
++	// TODO: Use unsafe.Slice((*uint)(&b[0]), len(b)) once go1.16 is no longer supported.
++	x := (*(*[]big.Word)(unsafe.Pointer(&b)))[:len(b)]
++	return new(big.Int).SetBits(x)
++}
+diff --git a/src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/bridge/bridge.go b/src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/bridge/bridge.go
+new file mode 100644
+index 0000000000..43f5e60049
+--- /dev/null
++++ b/src/vendor/github.com/microsoft/go-crypto-openssl/openssl/bbig/bridge/bridge.go
+@@ -0,0 +1,83 @@
++// Copyright (c) Microsoft Corporation.
++// Licensed under the MIT License.
++
++// These wrappers only exist for code reuse in places where we need the old pre-go1.19 signature.
++
++package bridge
++
++import (
++	"encoding/asn1"
++	"math/big"
++
++	"github.com/microsoft/go-crypto-openssl/openssl"
++	"github.com/microsoft/go-crypto-openssl/openssl/bbig"
++)
++
++func GenerateKeyECDSA(curve string) (X, Y, D *big.Int, err error) {
++	x, y, d, err := openssl.GenerateKeyECDSA(curve)
++	if err != nil {
++		return nil, nil, nil, err
++	}
++	return bbig.Dec(x), bbig.Dec(y), bbig.Dec(d), nil
++}
++
++type ecdsaSignature struct {
++	R, S *big.Int
++}
++
++func SignECDSA(priv *openssl.PrivateKeyECDSA, hash []byte) (r, s *big.Int, err error) {
++	sig, err := openssl.SignMarshalECDSA(priv, hash)
++	if err != nil {
++		return nil, nil, err
++	}
++	var esig ecdsaSignature
++	if _, err := asn1.Unmarshal(sig, &esig); err != nil {
++		return nil, nil, err
++	}
++	return esig.R, esig.S, nil
++}
++
++func NewPrivateKeyECDSA(curve string, X, Y, D *big.Int) (*openssl.PrivateKeyECDSA, error) {
++	return openssl.NewPrivateKeyECDSA(curve, bbig.Enc(X), bbig.Enc(Y), bbig.Enc(D))
++}
++
++func NewPublicKeyECDSA(curve string, X, Y *big.Int) (*openssl.PublicKeyECDSA, error) {
++	return openssl.NewPublicKeyECDSA(curve, bbig.Enc(X), bbig.Enc(Y))
++}
++
++func VerifyECDSA(pub *openssl.PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
++	sig, err := asn1.Marshal(ecdsaSignature{r, s})
++	if err != nil {
++		return false
++	}
++	return openssl.VerifyECDSA(pub, hash, sig)
++}
++
++func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv *big.Int, err error) {
++	bN, bE, bD, bP, bQ, bDp, bDq, bQinv, err1 := openssl.GenerateKeyRSA(bits)
++	if err1 != nil {
++		err = err1
++		return
++	}
++	N = bbig.Dec(bN)
++	E = bbig.Dec(bE)
++	D = bbig.Dec(bD)
++	P = bbig.Dec(bP)
++	Q = bbig.Dec(bQ)
++	Dp = bbig.Dec(bDp)
++	Dq = bbig.Dec(bDq)
++	Qinv = bbig.Dec(bQinv)
++	return
++}
++
++func NewPublicKeyRSA(N, E *big.Int) (*openssl.PublicKeyRSA, error) {
++	return openssl.NewPublicKeyRSA(bbig.Enc(N), bbig.Enc(E))
++}
++
++func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv *big.Int) (*openssl.PrivateKeyRSA, error) {
++	return openssl.NewPrivateKeyRSA(
++		bbig.Enc(N), bbig.Enc(E), bbig.Enc(D),
++		bbig.Enc(P), bbig.Enc(Q),
++		bbig.Enc(Dp), bbig.Enc(Dq), bbig.Enc(Qinv),
++	)
++}
 diff --git a/src/vendor/github.com/microsoft/go-crypto-openssl/openssl/big.go b/src/vendor/github.com/microsoft/go-crypto-openssl/openssl/big.go
 new file mode 100644
 index 0000000000..c6856c7bc2
@@ -2002,18 +2192,21 @@ index c5b0189efc..cdd216423b 100644
  func appendUint64(b []byte, x uint64) []byte {
  	return append(b,
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index c31f65cd61..58765e1007 100644
+index c31f65cd61..0f4e03b5d7 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
-@@ -1,5 +1,5 @@
+@@ -1,6 +1,8 @@
 -# github.com/microsoft/go-crypto-openssl v0.1.2
 -## explicit; go 1.16
-+# github.com/microsoft/go-crypto-openssl v0.1.2 => github.com/xnox/go-crypto-openssl v0.2.9-0.20230701230530-84b71a4b45db
++# github.com/microsoft/go-crypto-openssl v0.2.8 => github.com/xnox/go-crypto-openssl v0.2.9-0.20230701230530-84b71a4b45db
 +## explicit; go 1.17
  github.com/microsoft/go-crypto-openssl/openssl
++github.com/microsoft/go-crypto-openssl/openssl/bbig
++github.com/microsoft/go-crypto-openssl/openssl/bbig/bridge
  github.com/microsoft/go-crypto-openssl/openssl/internal/subtle
  # golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
-@@ -32,3 +32,4 @@ golang.org/x/text/secure/bidirule
+ ## explicit; go 1.17
+@@ -32,3 +34,4 @@ golang.org/x/text/secure/bidirule
  golang.org/x/text/transform
  golang.org/x/text/unicode/bidi
  golang.org/x/text/unicode/norm
