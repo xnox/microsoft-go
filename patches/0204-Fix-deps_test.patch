@@ -1,0 +1,30 @@
+From a225d29b51beb2f4ea64478f8c3caa1fdaec3750 Mon Sep 17 00:00:00 2001
+From: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
+Date: Mon, 3 Jul 2023 14:17:14 +0100
+Subject: [PATCH 204/204] Fix deps_test
+
+Signed-off-by: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
+---
+ src/go/build/deps_test.go | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index 809fc6658d..c826c4285d 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -424,9 +424,11 @@ var depsRules = `
+ 	CRYPTO
+ 	< github.com/microsoft/go-crypto-openssl/openssl/internal/subtle
+ 	< github.com/microsoft/go-crypto-openssl/openssl
++	< github.com/microsoft/go-crypto-openssl/bbig
++	< github.com/microsoft/go-crypto-openssl/bbig/bridge
+ 	< crypto/internal/backend
+ 	< crypto/aes, crypto/des, crypto/hmac, crypto/md5, crypto/rc4,
+-	  crypto/sha1, crypto/sha256, crypto/sha512
++	  crypto/sha1, crypto/sha256, crypto/sha512, crypto/sha3
+ 	< crypto/rand
+ 	< crypto/internal/randutil
+ 	< crypto/ed25519
+-- 
+2.34.1
+

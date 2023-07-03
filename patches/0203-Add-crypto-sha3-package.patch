@@ -1,7 +1,7 @@
 From e27d69faef0c8537a6728fec1ade317e47a771ba Mon Sep 17 00:00:00 2001
 From: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 Date: Sun, 2 Jul 2023 00:59:30 +0100
-Subject: [PATCH 203/203] Add crypto/sha3 package
+Subject: [PATCH 203/204] Add crypto/sha3 package
 
 Signed-off-by: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 ---
