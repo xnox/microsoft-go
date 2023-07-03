@@ -1,7 +1,7 @@
 From 4c50bd765f76109882d8cc42dc2540da1f9e61d9 Mon Sep 17 00:00:00 2001
 From: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 Date: Sun, 2 Jul 2023 00:44:15 +0100
-Subject: [PATCH 202/204] Upgrade go-crypto-openssl to sha3 capable
+Subject: [PATCH 202/203] Upgrade go-crypto-openssl to sha3 capable
 
 Signed-off-by: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 ---

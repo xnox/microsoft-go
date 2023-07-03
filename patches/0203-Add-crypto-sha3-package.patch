@@ -1,15 +1,55 @@
-From e27d69faef0c8537a6728fec1ade317e47a771ba Mon Sep 17 00:00:00 2001
+From d5b5b9bc5145c76cb1e069da5de88388a1d7e803 Mon Sep 17 00:00:00 2001
 From: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 Date: Sun, 2 Jul 2023 00:59:30 +0100
-Subject: [PATCH 203/204] Add crypto/sha3 package
+Subject: [PATCH 203/203] Add crypto/sha3 package
 
 Signed-off-by: Dimitri John Ledkov <dimitri.ledkov@canonical.com>
 ---
+ api/go1.18.txt                               | 27 +++++++++++++++++
  src/crypto/internal/backend/openssl_linux.go | 10 ++++++
  src/crypto/sha3/sha3.go                      | 32 ++++++++++++++++++++
- 2 files changed, 42 insertions(+)
+ src/go/build/deps_test.go                    | 10 +++---
+ 4 files changed, 75 insertions(+), 4 deletions(-)
  create mode 100644 src/crypto/sha3/sha3.go
 
+diff --git a/api/go1.18.txt b/api/go1.18.txt
+index 0f3e26df9d..8a5feb6f5e 100644
+--- a/api/go1.18.txt
++++ b/api/go1.18.txt
+@@ -2,6 +2,33 @@ pkg bufio, method (*Writer) AvailableBuffer() []uint8
+ pkg bufio, method (ReadWriter) AvailableBuffer() []uint8
+ pkg bytes, func Cut([]uint8, []uint8) ([]uint8, []uint8, bool)
+ pkg crypto/tls, method (*Conn) NetConn() net.Conn
++pkg crypto/sha3 (linux-386-cgo), var New224 func() hash.Hash
++pkg crypto/sha3 (linux-386-cgo), var New256 func() hash.Hash
++pkg crypto/sha3 (linux-386-cgo), var New384 func() hash.Hash
++pkg crypto/sha3 (linux-386-cgo), var New512 func() hash.Hash
++pkg crypto/sha3 (linux-386-cgo), var Sum224 func([]uint8) [28]uint8
++pkg crypto/sha3 (linux-386-cgo), var Sum256 func([]uint8) [32]uint8
++pkg crypto/sha3 (linux-386-cgo), var Sum384 func([]uint8) [48]uint8
++pkg crypto/sha3 (linux-386-cgo), var Sum512 func([]uint8) [64]uint8
++pkg crypto/sha3 (linux-386-cgo), var SupportsSHA3 func() bool
++pkg crypto/sha3 (linux-amd64-cgo), var New224 func() hash.Hash
++pkg crypto/sha3 (linux-amd64-cgo), var New256 func() hash.Hash
++pkg crypto/sha3 (linux-amd64-cgo), var New384 func() hash.Hash
++pkg crypto/sha3 (linux-amd64-cgo), var New512 func() hash.Hash
++pkg crypto/sha3 (linux-amd64-cgo), var Sum224 func([]uint8) [28]uint8
++pkg crypto/sha3 (linux-amd64-cgo), var Sum256 func([]uint8) [32]uint8
++pkg crypto/sha3 (linux-amd64-cgo), var Sum384 func([]uint8) [48]uint8
++pkg crypto/sha3 (linux-amd64-cgo), var Sum512 func([]uint8) [64]uint8
++pkg crypto/sha3 (linux-amd64-cgo), var SupportsSHA3 func() bool
++pkg crypto/sha3 (linux-arm-cgo), var New224 func() hash.Hash
++pkg crypto/sha3 (linux-arm-cgo), var New256 func() hash.Hash
++pkg crypto/sha3 (linux-arm-cgo), var New384 func() hash.Hash
++pkg crypto/sha3 (linux-arm-cgo), var New512 func() hash.Hash
++pkg crypto/sha3 (linux-arm-cgo), var Sum224 func([]uint8) [28]uint8
++pkg crypto/sha3 (linux-arm-cgo), var Sum256 func([]uint8) [32]uint8
++pkg crypto/sha3 (linux-arm-cgo), var Sum384 func([]uint8) [48]uint8
++pkg crypto/sha3 (linux-arm-cgo), var Sum512 func([]uint8) [64]uint8
++pkg crypto/sha3 (linux-arm-cgo), var SupportsSHA3 func() bool
+ pkg debug/buildinfo, func Read(io.ReaderAt) (*debug.BuildInfo, error)
+ pkg debug/buildinfo, func ReadFile(string) (*debug.BuildInfo, error)
+ pkg debug/buildinfo, type BuildInfo = debug.BuildInfo
 diff --git a/src/crypto/internal/backend/openssl_linux.go b/src/crypto/internal/backend/openssl_linux.go
 index 6678020bf1..94a98e1d8c 100644
 --- a/src/crypto/internal/backend/openssl_linux.go
@@ -69,6 +109,33 @@ index 0000000000..ac44533005
 +              crypto.RegisterHash(crypto.SHA3_512, New512)
 +       }
 +}
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index 809fc6658d..4ffcfe57fb 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -417,16 +417,18 @@ var depsRules = `
+ 	< crypto/ed25519/internal/edwards25519
+ 	< crypto/cipher
+ 	< encoding/asn1
++	< github.com/microsoft/go-crypto-openssl/openssl/internal/subtle
++	< github.com/microsoft/go-crypto-openssl/openssl
++	< github.com/microsoft/go-crypto-openssl/openssl/bbig
++	< github.com/microsoft/go-crypto-openssl/openssl/bbig/bridge
+ 	< CRYPTO;
+ 
+ 	CRYPTO < crypto/internal/boring;
+-	
++
+ 	CRYPTO
+-	< github.com/microsoft/go-crypto-openssl/openssl/internal/subtle
+-	< github.com/microsoft/go-crypto-openssl/openssl
+ 	< crypto/internal/backend
+ 	< crypto/aes, crypto/des, crypto/hmac, crypto/md5, crypto/rc4,
+-	  crypto/sha1, crypto/sha256, crypto/sha512
++	  crypto/sha1, crypto/sha256, crypto/sha512, crypto/sha3
+ 	< crypto/rand
+ 	< crypto/internal/randutil
+ 	< crypto/ed25519
 -- 
 2.34.1
 
